@@ -1,0 +1,5 @@
+# basic MOVE(I), MOVE(C) #, parallel ADD, X writes/reads, BRA *
+MODE 2
+P e000 2012 2134 4a04 4a0c 3e1c 0100 3e3c 0900 3c3c 0002
+P e00a 8100 8300 0000 0bff
+X 0900 1234

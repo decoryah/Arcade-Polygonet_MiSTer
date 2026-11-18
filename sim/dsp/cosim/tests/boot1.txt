@@ -1,0 +1,11 @@
+# mode 1 host bootstrap: P:C000 bit 15 = 0, two words then HF0
+MODE 1
+P c000 0000
+HW 0 6 20
+HW 0 7 12
+HW 0 6 0b
+HW 0 7 ff
+HW 0 0 08
+HR 0 2
+EXPECT x0 0012
+EXPECTP 0001 0bff

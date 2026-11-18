@@ -1,0 +1,12 @@
+# DSP writes HTX, host reads TXH/TXL; host writes TXH/TXL, DSP reads HRX; port C
+MODE 2
+# x0 = 0xbeef ; movep x0,x:$ffe5 ; movep x:$ffe4,y0 ; movep x:$ffe5,y1 ; x1=0x0abc ; movep x1->? (MOVES) ; movep x0,x:$ffe3 ; bra *
+P e000 3c1c beef 1825 1964 19e5 0000 3c1c 0123 1823 0000 0000 0000 0000 0bff
+HR 2 2
+HR 2 6
+HR 2 7
+HR 2 2
+HW 2 6 55
+HW 2 7 aa
+HR 3 2
+HR 4 2

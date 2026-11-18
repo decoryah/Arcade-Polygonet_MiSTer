@@ -1,0 +1,4 @@
+# mode 1 with P:C000 bit 15 = 1 (SSI boot, not modelled): runs from p:0000 = JMP (R0)
+MODE 1
+P c000 8000
+STEPS 20

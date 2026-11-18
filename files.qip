@@ -1,0 +1,41 @@
+set_global_assignment -name SYSTEMVERILOG_FILE Polygonet.sv
+set_global_assignment -name SDC_FILE Polygonet.sdc
+
+# the machine
+set_global_assignment -name SEARCH_PATH rtl/data
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_clk.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_video.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_crt.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_core.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_main.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_sound.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_ttl.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_roz.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_poly.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_dsp_board.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/dbg_overlay.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/er5911.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/k054321.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/k054539.sv
+# the DSP56156 core (sim/dsp56156_stub.sv is its port stub for builds without it)
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/dsp56156/dsp56156_ram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/dsp56156/dsp56156_periph.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/dsp56156/dsp56156.sv
+
+# TG68K.C 68000/68020 kernel (LGPL, Tobias Gubener), GHDL-converted
+set_global_assignment -name VERILOG_FILE modules/cpu-tg68k/gen/tg68k.v
+# tv80 Z80 (MIT, Guy Hutchison)
+set_global_assignment -name VERILOG_FILE modules/cpu-tv80/tv80_alu.v
+set_global_assignment -name VERILOG_FILE modules/cpu-tv80/tv80_core.v
+set_global_assignment -name VERILOG_FILE modules/cpu-tv80/tv80_mcode.v
+set_global_assignment -name VERILOG_FILE modules/cpu-tv80/tv80_reg.v
+set_global_assignment -name VERILOG_FILE modules/cpu-tv80/tv80s_cen.v
+set_global_assignment -name VERILOG_FILE modules/cpu-tv80/tv80s.v
+
+# MiSTer platform layer
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/pn_mem.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rom_cache.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_ctrl.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ddr_arb.sv
+# rmonic79's CRT Adjust (GPL-3.0 or later)
+set_global_assignment -name SYSTEMVERILOG_FILE modules/crt-adjust/crt_adjust.sv

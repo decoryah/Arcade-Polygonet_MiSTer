@@ -1,0 +1,7 @@
+# WAIT woken by IRQA (fast vector of NOPs), then STOP woken by IRQB
+MODE 2
+P e000 3c1c 001b 3814 ffdf 1afc 000b 2011 000a 2022 0bff
+IRQA 4 0
+IRQA 7 1
+IRQB 9 0
+IRQB 12 1

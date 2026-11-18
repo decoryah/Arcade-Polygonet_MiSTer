@@ -1,0 +1,3 @@
+# REP #3 / DO #3 loops, REP with zero count skips, ENDDO, BRKcc; a DO loop end with a REP inside
+MODE 2
+P e000 2003 2101 0f03 4a04 0e03 0005 4a0c 4a0d 0f00 4a04 2000 0420 4a0c 0e02 0003 2000 0110 4a04 0000 0bff
