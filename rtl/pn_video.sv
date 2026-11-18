@@ -8,7 +8,7 @@
 // real-time 59.94 fps capture, 54 game frames, so the board runs at ~59.94 Hz
 // (docs/hardware.md). Chosen here: 8 MHz pixel clock, 500 clocks a line (16.0 kHz),
 // 267 lines: 59.925 Hz, the 256 picture lines plus 11 of vblank. Visible 384 x 256
-// starting at hcount 64 (MAME's visarea). (Up to 20261116g: 512 x 264, 59.19 Hz.)
+// starting at hcount 64 (MAME's visarea).
 //
 // Each visible line is rendered into line buffers during the line before it:
 // `line_start` pulses at hcount 0 of raster line r with render_line = r+1, and the
@@ -29,7 +29,7 @@ module pn_video #(
     parameter int VIS_X0   = 64,
     parameter int VIS_W    = 384,
     parameter int VIS_H    = 256,     // picture lines are vcount 0..255
-    parameter int HS_START = 462,     // front porch 14 clocks, sync 4.5 us, back porch 64
+    parameter int HS_START = 462,     // front porch 14 clocks, sync 4.5 us, back porch 66
     parameter int HS_LEN   = 36,
     parameter int VS_START = 258,
     parameter int VS_LEN   = 3

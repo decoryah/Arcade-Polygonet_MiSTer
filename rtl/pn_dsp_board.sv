@@ -24,9 +24,9 @@
 // and update a line they hit. The DSP is the only writer of these banks (the renderer only reads
 // b_8's span tables), so the cache never holds stale data.
 // Writes go through a 16-entry queue (address decoded at accept, bank included), drained to the
-// SDRAM one word at a time while the sequencer serves the DSP's next accesses (until 20261117c a
-// write held the sequencer until the SDRAM took it: a copy loop of shared RAM to a_8 / b_8 ran at
-// half the chip's speed). A line fill waits for the queue to empty, so it reads what was written,
+// SDRAM one word at a time while the sequencer serves the DSP's next accesses (a write that held
+// the sequencer until the SDRAM took it would run a copy loop of shared RAM to a_8 / b_8 at half
+// the chip's speed). A line fill waits for the queue to empty, so it reads what was written,
 // and so does a polygon page flip (the renderer reads b_8's span tables from the SDRAM).
 //
 // The core's memory ports follow the shared conventions (level request, one-cycle ack, ack only

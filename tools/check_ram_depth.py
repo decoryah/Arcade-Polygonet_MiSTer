@@ -5,10 +5,10 @@
 
 A simulator evaluates an array exactly as declared; Quartus 17 does not always. A two-dimensional
 unpacked array such as `logic [7:0] lbuf [2][384]` (768 words) is built 512 words deep, so the two
-halves of a double line buffer overwrite each other -- invisible in every bench. On the board (the
-20261116b build) the text and K053936 layers showed a second copy of the picture 128 pixels along every
-other line. The same fault was found in the Monster Maulers core (its README, 20261010). Line buffers
-are flat power-of-two arrays now ({half, x}); run this on every fit report. It exits 1 if a listed
+halves of a double line buffer overwrite each other -- invisible in every bench. On the board it shows
+as a second copy of the text and K053936 layers 128 pixels along every other line; the Monster Maulers
+core met the same fault. Line buffers here are flat power-of-two arrays ({half, x}); run this on every
+fit report. It exits 1 if a listed
 memory is shallower than declared, or missing.
 """
 import os

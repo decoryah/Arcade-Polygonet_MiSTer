@@ -33,8 +33,8 @@ module pn_clk (
             cen_16m <= (div == 4'd11) || (div == 4'd5);
             cen_8m  <= (div == 4'd11);
             cen_pix <= (div == 4'd5);
-            // 40/96: add 40, emit when crossing 96 (5 pulses every 12 clocks). Until 20261116j dacc
-            // had 7 bits and dacc + 40 wrapped at 128: 2 pulses every 8 clocks, a 24 MHz DSP.
+            // 40/96: add 40, emit when crossing 96 (5 pulses every 12 clocks). dacc needs 8 bits: with 7,
+            // dacc + 40 would wrap at 128 and give 2 pulses every 8 clocks, a 24 MHz DSP.
             if (dacc + 8'd40 >= 8'd96) begin dacc <= dacc + 8'd40 - 8'd96; cen_dsp <= 1'b1; end
             else begin dacc <= dacc + 8'd40; cen_dsp <= 1'b0; end
         end

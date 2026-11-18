@@ -27,7 +27,7 @@
 // big-endian (word address A[x:1], the even word is D31-16 of the 68020's long).
 //
 // Pacing: a token bucket as in the mystwarr-family cores (mw_main.sv): STEP_GAIN tokens per
-// cen_16m (4 a 16 MHz clock). From 20261117f each instruction is charged MAME's 68020 cycle
+// cen_16m (4 a 16 MHz clock). Each instruction is charged MAME's 68020 cycle
 // count, which is the real chip's time with its instruction cache hit and no wait states:
 // two ROMs (rtl/data/m68k_cyc_grp.hex, m68k_cyc_shp.hex: per opcode group of 64, a base and
 // one of 25 addressing-mode shapes) hold the count of every opcode, measured by running each
@@ -35,14 +35,14 @@
 // decodeOPC). On top: a short Bcc taken +2 (a fetch away from the sequential address before
 // the next decode), a DBcc that falls through +4 (no such fetch), MOVEM 3 clocks a register
 // stored and 4 a register loaded (per data step: half that for .l, which TG68K moves in two
-// steps), and an interrupt 30 (at its acknowledge). The other steps are free. Until 20261117e
-// each TG68K step was charged by its kind (1.5 clocks a fetched word, 3 a data word, 1 an
-// internal step): close to MAME on average, but a DBRA loop ran in 4 clocks an iteration
-// against the chip's 6 (the games' boot delays 1.5 times short: Poly-Net Warriors' sound check
-// failed on 20261117e) and a long move cost twice the chip's single 32-bit bus cycle.
+// steps), and an interrupt 30 (at its acknowledge). The other steps are free. Charging each
+// TG68K step by its kind instead (1.5 clocks a fetched word, 3 a data word, 1 an internal step)
+// is close to MAME on average, but runs a DBRA loop in 4 clocks an iteration against the chip's
+// 6 (the games' boot delays 1.5 times short, and Poly-Net Warriors' sound check fails) and
+// charges a long move twice the chip's single 32-bit bus cycle.
 // Up to TOK_MAX tokens of credit are kept, so that the time lost waiting for the ROM cache or
-// the SDRAM is caught up: 1,020 tokens (255 68020 clocks, 16 us) from 20261117e, enough for a
-// program cache fill that waits behind the display fetch's 384-word bursts.
+// the SDRAM is caught up: 1,020 tokens (255 68020 clocks, 16 us), enough for a program cache
+// fill that waits behind the display fetch's 384-word bursts.
 //
 // Interrupts (MAME): IRQ5 at vblank, raised only while sys1 bit 5 (/L5MAS) is set and held
 // (ASSERT_LINE) until a sys1 write with bit 5 clear; IRQ3 from the K056230 (no network here:

@@ -4,14 +4,14 @@
 //
 //   * the DSP flips a page by toggling bit 0 of x:e000 (page A) / x:e001 (page B) in
 //     mapping A. The new value is the buffer to render, the old one the buffer to show.
-//     One difference from MAME (20261117g): the list drawn is the OTHER buffer's, the one the
+//     One difference from MAME: the list drawn is the OTHER buffer's, the one the
 //     DSP finished in its last job. The games flip at the start of a 3D job to buffer X and then
 //     write that job's lists and spans into buffer X (Port C bit 7), from about 0.2 ms after the
 //     flip. MAME draws list X (written two jobs before) in no time at the flip, so that does not
-//     matter there; drawing takes the core (and the board) far longer, and drawing list X let the
-//     DSP overwrite it underneath: polygons late in the list took the next frame's spans (the
-//     torn door beams of both games' garage scenes). The framebuffers are still X (drawn) and
-//     ~X (shown); the picture is one 3D frame fresher than MAME's.
+//     matter there; drawing takes the core (and the board) far longer, and drawing list X would
+//     let the DSP overwrite it underneath: polygons late in the list would take the next frame's
+//     spans (the door beams of both games' garage scenes tear). The framebuffers are still X
+//     (drawn) and ~X (shown); the picture is one 3D frame fresher than MAME's.
 //   * the polygon list of page p, buffer b sits at word offset {{0,0x2000},{0x1000,0x3000}}[p][b]
 //     of the b6 and b7 banks (16K words each). Header: b6[0] == 6 && b6[1] == 6 means "no list".
 //     If b7[1] bit 15 is set the buffer is cleared first.

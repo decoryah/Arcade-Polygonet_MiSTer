@@ -1,9 +1,9 @@
 //------------------------------------------------------------------------------
 // DDR3 arbiter: one Avalon-MM master port (the MiSTer framework's DDRAM_*) shared
-// by the core's memory client (ROZ map and characters, the loader's writes), the
-// framework's screen_rotate, which writes the rotated frame buffer, and the Flip
-// Screen buffer's line reads (flip_buf.sv; its writes go through the same FIFO as
-// screen_rotate's).
+// by the core's memory client (pn_mem's fast load, reading the ROM image that
+// Main_MiSTer put in the DDR3) and the framework's screen_rotate, which writes the
+// rotated frame buffer. A third port, a flip buffer's line reads (whose writes would
+// go through the same FIFO as screen_rotate's), is tied off in this core.
 //
 // screen_rotate raises DDRAM_WE for one clock per pixel and never looks at
 // DDRAM_BUSY, so its writes cannot be refused: they go into a FIFO and are
@@ -22,7 +22,7 @@
 `default_nettype none
 
 module ddr_arb #(
-    parameter int FIFO_AW = 6,                  // 64 queued rotate / flip writes
+    parameter int FIFO_AW = 6,                  // 64 queued rotate writes
     parameter [3:0] CLIENT_BASE = 4'd3          // the client's 256 MB window: byte 0x30000000
 ) (
     input  logic        clk,
@@ -45,7 +45,8 @@ module ddr_arb #(
     input  logic [63:0] r_din,
     input  logic  [7:0] r_be,
 
-    // the flip buffer's line reads (a burst per request; its beats come back on f_dready, data on c_dout)
+    // a flip buffer's line reads (a burst per request; its beats come back on f_dready, data on c_dout;
+    // tied off in this core)
     input  logic        f_rd,
     input  logic [24:0] f_addr,                 // 64-bit word address within the client's window
     input  logic  [7:0] f_burst,

@@ -35,13 +35,14 @@
 //
 // Pacing: cen is the 40 MHz chip clock (cen_dsp, 40 pulses per 96 clocks).
 // GO needs a cen pulse since the previous GO (so holding cen low stops the
-// core at the next instruction boundary, exactly as before) and a token
+// core at the next instruction boundary) and a token
 // bucket that is credited one per cen and charged retire_cyc (the real
 // chip's clock count, Iss::cycles_for) per retire and the BCR's wait states
 // per external access: the core does not run ahead of the real chip, and
-// when it has fallen behind (its own pipeline is the slower one on most
-// instructions, faster on REP repeats) it runs as fast as it can until it has
-// caught up, keeping at most TOK_MAX chip clocks of credit.
+// when it has fallen behind (its own pipeline is slower on one-word
+// instructions and REP repeats, faster on jumps and two-word instructions)
+// it runs as fast as it can until it has caught up, keeping at most TOK_MAX
+// chip clocks of credit.
 // Clocks per instruction (96 MHz, everything on chip, no pacing stall): 5 for a
 // 1-word instruction that needs no AGU result and no operand read (DEC GO .. EXEC:
 // EXEC fires at pcnt 3 with the opcode read during GO and goes straight to DEC),
@@ -1301,7 +1302,7 @@ module dsp56156 (
     end
 
     // ============================================================ data ALU, stage 2 (pcnt 2): rounding and flags
-    // (until 20261117b two stages; one stage makes the result valid at pcnt 3)
+    // (one stage, so the result is valid at pcnt 3)
     logic [39:0] alu_res;
     logic        alu_wr, alu_upd;
     logic  [7:0] alu_ccr;
@@ -1839,7 +1840,7 @@ end
     // access is issued; at most TOK_MAX. A negative tok holds the next GO (the
     // core is ahead of the real chip); credit is what the core has fallen
     // behind it, kept up to TOK_MAX (3.3 ms) so that the stretches the core
-    // runs faster than the chip (most of the on-chip code, REP repeats) catch up
+    // runs faster than the chip (jumps, two-word instructions) catch up
     // what the slower ones lost (the external SDRAM accesses: a long run of them
     // falls behind by tens of thousands of chip clocks). Spinning (a jump to
     // itself: an idle or polling loop) drops the credit (spin_q): the chip's
