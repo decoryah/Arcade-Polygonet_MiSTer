@@ -57,6 +57,14 @@ wire         video_rotated;
 wire        no_rotate  = status[2] | direct_video;
 wire  [1:0] ar         = status[122:121];
 
+// Timing (the OSD): 267 lines (the default, for a CRT and HDMI: an 8 MHz dot, 16.0 kHz, 59.925 Hz), or 263 lines for a
+// RetroTINK 4K in direct video (DV1), which takes 262-264 lines as "MiSTer 240p" and 267 as "MiSTer Gen.": a 7.38 MHz
+// dot so the picture fills 82 % of the line, 15.78 kHz, 59.997 Hz, 7 blank lines (too few for a CRT). rtl/pn_video.sv
+// takes it at the end of a frame. hps_io's new_vmode follows it, so the framework measures the raster again and sends DV1
+// the new numbers (both timings are 384 x 256, which alone wouldn't). CRT Adjust is made for the 267-line raster: the menu
+// greys out its page with the RT4K's, and it is off then (the register is set below the PLL)
+reg         rt4k = 1'b0;
+
 // the Debug page's controls (development builds, PN_DEBUG_OSD): in a release they keep their defaults, so a
 // setting saved by an earlier build cannot leave a layer off with no menu to turn it back on
 `ifdef PN_DEBUG_OSD
@@ -91,7 +99,8 @@ localparam CONF_STR = {
 	"H0O[2],Orientation,Vert,Horz;",
 	"H0O[11],Rotation,CW,CCW;",
 	"O[5:3],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
-	"P1,CRT Adjust;",
+	"O[57],Timing,267 lns. (Original),263 lns. (RT4K DV1);",
+	"D3P1,CRT Adjust;",
 	"P1O[40],CRT Adjust,Off,On;",
 	"H1P1O[45:41],CRT H-Size,0,+1,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
 	"H1P1O[52:46],CRT H-Position,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,-48,-47,-46,-45,-44,-43,-42,-41,-40,-39,-38,-37,-36,-35,-34,-33,-32,-31,-30,-29,-28,-27,-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
@@ -100,8 +109,8 @@ localparam CONF_STR = {
 	"H1P1O[56:53],CRT V-Shift,0,+1,+2,+3,-5,-4,-3,-2,-1;",
 	"-;",
 	"P2,Board Settings;",
-	"P2O[15:14],Player Color/Network ID,Red,Yellow,Green,Blue;",
-	"P2O[16],Tank controls,One stick,Two sticks (P1+P2 Y);",
+	"P2O[15:14],Player Color/Net ID,Red,Yellow,Green,Blue;",
+	"P2O[16],Tank controls,One stick,Two sticks;",
 	"P2O[8],Audio,Stereo,Mono;",
 	"O[6],Test Mode,Off,On;",
 `ifdef PN_DEBUG_OSD
@@ -137,6 +146,8 @@ pll pll
 	.locked(pll_locked)
 );
 
+always @(posedge clk_sys) rt4k <= status[57];
+
 ///////////////////////////////////////////////////
 
 wire         ioctl_download;
@@ -161,8 +172,9 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 
 	.buttons(buttons),
 	.status(status),
-	.status_menumask({13'd0, ~no_rotate, ~status[40], direct_video}),
+	.status_menumask({12'd0, rt4k, ~no_rotate, ~(status[40] & ~rt4k), direct_video}),
 	.forced_scandoubler(forced_scandoubler),
+	.new_vmode(rt4k),
 	.video_rotated(video_rotated),
 	.direct_video(direct_video),
 	.gamma_bus(gamma_bus),
@@ -363,7 +375,7 @@ wire [31:0] dbg_exc_pc, dbg_exc_ia; wire [15:0] dbg_exc_fv, dbg_exc_sr;
 
 pn_core #(.HEXDIR("rtl/data")) pn
 (
-	.clk(clk_sys), .reset(pn_reset), .vid_reset(~pll_locked),
+	.clk(clk_sys), .reset(pn_reset), .vid_reset(~pll_locked), .vmode(rt4k),
 	.prog_req(prog_req), .prog_addr(prog_addr), .prog_ack(prog_ack), .prog_q(prog_q),
 	.grom_req(grom_req), .grom_addr(grom_addr), .grom_ack(grom_ack), .grom_q(grom_q),
 	.pram_req(pram_req), .pram_we(pram_we), .pram_addr(pram_addr), .pram_be(pram_be),
@@ -478,7 +490,7 @@ wire [23:0] crt_rgb;
 wire        crt_hb, crt_vb, crt_hs, crt_vs;
 pn_crt u_crt
 (
-	.clk(clk_sys), .cen(vq_ce), .enable(status[40]), .sd((|status[5:3]) | forced_scandoubler),
+	.clk(clk_sys), .cen(vq_ce), .enable(status[40] & ~rt4k), .sd((|status[5:3]) | forced_scandoubler),
 	.hsize_i(status[45:41]), .hpos_i(status[52:46]), .vshift_i(status[56:53]), .line(pn_line),
 	.rgb(vq_rgb), .hs(vq_hs), .vs(vq_vs), .hb(vq_hb), .vb(vq_vb), .blank(vq_hbc),
 	.ce_pix(crt_ce), .rgb_o(crt_rgb), .hb_o(crt_hb), .vb_o(crt_vb), .hs_o(crt_hs), .vs_o(crt_vs)

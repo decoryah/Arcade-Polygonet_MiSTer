@@ -18,7 +18,7 @@ board is in `hardware.md`.
 | Polygons | `rtl/pn_poly.sv` | pages A and B: MAME's `process_polys` / `draw_poly`, framebuffers in SDRAM, the display fetch |
 | K053936 | `rtl/pn_roz.sv` | the background, with a cache of four-row tile groups |
 | Text plane | `rtl/pn_ttl.sv` | the "FIX" layer, with a tile-row cache |
-| Raster | `rtl/pn_video.sv` | 500 x 267 at 8 MHz, the render pulses a line ahead, the screen flip |
+| Raster | `rtl/pn_video.sv` | 500 x 267 at 8 MHz, or 468 x 263 at 7.38 MHz for a RetroTINK 4K; the render pulses a line ahead, the screen flip |
 | Sound | `rtl/pn_sound.sv`, `rtl/k054539.sv`, `rtl/k054321.sv` | Z80, one K054539, the sound latch |
 | EEPROM | `rtl/er5911.sv` | ER5911, 128 x 8 |
 | Memory | `rtl/pn_mem.sv`, `rtl/sdram_ctrl.sv`, `rtl/rom_cache.sv`, `rtl/ddr_arb.sv` | loader and fast load, SDRAM layout and arbitration, program caches, DDR3 arbiter |
@@ -27,12 +27,12 @@ board is in `hardware.md`.
 
 **Clocks.** Everything runs on one 96 MHz clock (the SDRAM chip gets a phase-shifted copy), with enables from `pn_clk`: `cen_16m`
 (96 / 6, the 68020: 32 MHz / 2), `cen_dsp` (40 pulses every 96 clocks from a fractional accumulator, the DSP's 40 MHz), `cen_8m`
-(96 / 12, the Z80), `cen_pix` (96 / 12, the 8 MHz pixel) and `cen_48k` (96 / 2000, the K054539's samples: 18.432 MHz / 384). The
+(96 / 12, the Z80), `cen_pix` (96 / 12, the 8 MHz pixel; 96 / 13 with the RT4K Timing) and `cen_48k` (96 / 2000, the K054539's samples: 18.432 MHz / 384). The
 Z80 steps on its enable; the 68020 and the DSP run as fast as their cores go and are held to the real chips' time by token buckets
 credited from theirs.
 
-**Budget.** Quartus 17.0.2, 5CSEBA6U23I7: 22,774 ALMs of 41,910 (54 %), 455 of 553 M10K, 52 of 112 DSP blocks. Timing is met
-on every clock: +0.615 ns setup and +0.243 ns hold on the 96 MHz clock, +0.653 ns and +0.249 ns on HDMI's. The M10K are the
+**Budget.** Quartus 17.0.2, 5CSEBA6U23I7: 22,836 ALMs of 41,910 (54 %), 455 of 553 M10K, 52 of 112 DSP blocks. Timing is met
+on every clock: +0.304 ns setup and +0.240 ns hold on the 96 MHz clock, +0.481 ns and +0.176 ns on HDMI's. The M10K are the
 tight resource, so the big memories are in SDRAM: the framebuffers (only their occupancy bits on chip), the DSP's two largest
 banks, and the 68020's palette RAM (1 Mbit).
 
@@ -304,7 +304,7 @@ screen pixel px is tilemap x = px + 64. A tile row is one dword of gfx1 as store
 nibble, pixel 7 byte 3's low (MAME's `ROM_GROUPDWORD | ROM_REVERSE` and the region's big-endian layout cancel out). A 256-entry
 direct-mapped cache keyed {code, row} holds rows (a line's 48 tiles are mostly the same few), swept at `frame_start`.
 
-**The mixer** (`pn_core`, 12 clocks a pixel: pens, then the palette copy, then the choice): the text plane (pen not 0, while
+**The mixer** (`pn_core`, 12 or 13 clocks a pixel: pens, then the palette copy, then the choice): the text plane (pen not 0, while
 /FIXKILL is high) over page A over page B (drawn and not 0, RGB555 widened by repeating the top bits) over the K053936 (pen not 0)
 over palette entry 0x100. A debug build can turn each layer off.
 
@@ -315,6 +315,17 @@ lines (59.925 Hz). The picture is 384 x 256: pixels 64-447 of the line and lines
 pixel 462, so the picture starts 102 pixels after it; the vsync is on lines 258-260 of 11 blank lines. MAME gives 384 x 256 in
 512 x 256 at 60 Hz with no blanking; the board has no K053252 and its totals are unknown. The refresh is the one measured on
 real-board footage of Poly-Net Warriors (~59.94 Hz, `hardware.md`).
+
+**Timing** (the OSD; `pn_video` takes it at the end of a frame). The raster above is the default, 267 lns. (Original). The
+other, 263 lns. (RT4K DV1), is for a RetroTINK 4K in direct video, which sorts a signal by its lines a frame (262-264 are
+"MiSTer 240p", 267 "MiSTer Gen.") and judges a picture's width by its time in the line: a 7.38 MHz pixel (13 clocks, `pn_clk`'s
+`pix13`), 468 pixels a line (6,084 clocks, 15.78 kHz) and 263 lines (1,600,092 clocks, 59.997 Hz). The picture fills 52 us of the
+63.4 us line (82 %, where the 8 MHz pixel fills 77 %); it is pixels 61-444 and the hsync pixels 0-33 (4.6 us), so the picture
+starts 61 pixels after the hsync starts and ends 23 before the next. That centres it in direct video's DE, which `sys_top` makes
+from the hsync alone (from 4 pixels after it ends to the next one: pixels 38-467): the RT4K crops the picture's width times the
+clocks a pixel from the middle of that DE. The vsync is lines 258-259 of 7 blank lines, too few for a CRT's flyback. The
+games run in MAME with no vertical blank at all, so 7 lines are enough for them. CRT Adjust is made for the 267-line raster: the
+top level holds it off and greys out its page with the other.
 
 **Path.** The picture is registered at the pixel tick, then goes through `pn_crt`, arcade_video (384 wide, 24-bit, gamma),
 video_freak (aspect ratio, integer scaling) and screen_rotate, which turns it through a DDR3 frame buffer for ROT90. Orientation
@@ -331,8 +342,11 @@ V-Shift -5..+3 (further, picture lines fall in the vsync and the rest wraps roun
 read pixels, and a pixel still in arcade_video's three-pixel delay at the irregular interval would be drawn twice as long).
 
 **Direct video and DV1.** The framework's `video_calc` measures what Main_MiSTer puts in the DV1 information: `vid_pixrep` (clocks
-between pixel enables at the start of DE: 12 here), `vid_de_h` and `vid_de_v`. H-Size makes the pixels uneven, so DV1 wants CRT
-Adjust Off and no Scandoubler Fx. Not tried with a RetroTINK 4K.
+between pixel enables at the start of DE: 12, or 13 with the RT4K Timing), `vid_de_h` and `vid_de_v`. Main_MiSTer reads them
+again only when `vid_nres` changes, which it does when the picture's size changes or `new_vmode` does; both timings are 384 x
+256, so `new_vmode` follows the Timing, and the framework reports the new numbers 16 frames after a change. H-Size makes the
+pixels uneven, so DV1 wants CRT Adjust Off (it is, with the RT4K timing) and no Scandoubler Fx. A RetroTINK 4K shows the 267-line
+raster as "MiSTer Gen." and the 263-line one as "MiSTer 240p".
 
 **Debug overlay** (`PN_DEBUG_OSD` builds, the Debug page, which also turns layers off and moves the SDRAM read capture): six rows
 of squares: the first 68020 exception frame (three rows); the frame count, memory and reset flags and the DSP's PC; the 68020's bus
@@ -372,7 +386,7 @@ K054321's master volume (a Q4.12 table) and channel enables, then MUTE; the OSD'
 | Bench | What it checks |
 |---|---|
 | `sim/lint.sh` | Verilator `-Wall` lint of `pn_core` (with the DSP core, TG68K and tv80), of `pn_mem` with `sdram_ctrl` and `rom_cache`, and of `pn_crt`; the only warnings are TG68K's |
-| `sim/core/run.sh` | a hand-assembled 68020 program on the whole machine with ideal memories: work RAM, the palette and its copy, text RAM, IN0, shared RAM through the DSP board, the DSP released, booted over the host port by the 68020 and writing shared RAM, IRQ5, two host-interface reads back to back, a divide by zero and the exception capture |
+| `sim/core/run.sh` | a hand-assembled 68020 program on the whole machine with ideal memories: work RAM, the palette and its copy, text RAM, IN0, shared RAM through the DSP board, the DSP released, booted over the host port by the 68020 and writing shared RAM, IRQ5, two host-interface reads back to back, a divide by zero and the exception capture; and the raster at the machine's outputs (every line's and frame's clocks, the lines a frame, the clocks between pixels, the sync pulses, where the picture starts after each, 256 rows of 384 pixels), in three runs: 267 lines, 263 lines (`+vmode=1`), and a change to 263 lines in the middle of a frame (`+vswitch`) |
 | `sim/cpu/run.sh` | TG68K alone against a Python model of the 68020, 2,412 cases: MULS / MULU.L, DIVS / DIVU.L (with and without a remainder register), DIVS / DIVU.W, EXTB.L, BFEXTS / BFEXTU on memory, zero-divide traps |
 | `sim/dsp/run_all.sh [N]` | the DSP56156: 10 directed tests on the reference model against hand-computed values, 59 directed tests in co-simulation under three bus-latency and cen profiles, N random programs (400), the co-simulation's `-Wall` lint: 587 checks |
 | `sim/poly/run.sh [seed]` | `pn_poly` against `gen_poly.py`, a transcription of MAME's `process_polys` / `draw_poly`, pixel for pixel: clears, skipped lists, reversed and empty spans, clipping, the first-pixel rule; the display fetch against memory on every line |
@@ -381,6 +395,7 @@ K054321's master volume (a Q4.12 table) and channel enables, then MUTE; the OSD'
 | `sim/ovl/run.sh` | the overlay's six rows |
 | `sim/rot/run.sh` | `pn_video`'s raster with a test pattern through arcade_video, video_freak, screen_rotate and `ddr_arb` into a DDR3 model with random BUSY; the rotated frame buffer checked pixel by pixel (`+fx`, `+ccw`, `+busy`) |
 | `sim/crt/run.sh` | all 1,143 CRT Adjust settings (18 H-Sizes x 63 H-Positions, 9 V-Shifts, Off) measured on arcade_video's output; `check.py` wants the whole picture in order on every line, pixels within a clock of each other, nothing of it in either sync pulse or past the line's end, the syncs at 6,000 clocks and 267 lines, and every value 0 the same as Off |
+| `sim/dv/run.sh` | the direct-video path for a RetroTINK 4K: `pn_clk` and `pn_video` into `sys_top`'s direct-video DE and the framework's `video_calc`; on every picture line the DE pixels before and after the picture (62 and 14 with 267 lines, 23 and 23 with 263), and a change to 263 lines long after the start: `video_calc` reports again with 13 clocks a pixel, and with `new_vmode` held at 0 (`+nonew`) it does not |
 | `sim/game/run.sh set.zip [frames] [snap]` | the whole machine on a set's ROMs from power-on, the picture to `frame_NNNN.ppm` |
 
 `sim/run_all.sh` runs every bench but the last (three seeds for `poly`, `roz`, `ttl`), a PASS / FAIL line each. The benches run in

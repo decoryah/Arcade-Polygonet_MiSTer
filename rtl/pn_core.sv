@@ -24,6 +24,7 @@ module pn_core #(
     input  logic        clk,                // 96 MHz
     input  logic        reset,
     input  logic        vid_reset,
+    input  logic        vmode,              // the OSD's Timing: 0 267 lines, 1 263 lines for a RetroTINK 4K (pn_video)
 
     // program ROM, 2 MB as 1M x 16 (big-endian words: the four EPROMs interleaved)
     output logic        prog_req,
@@ -94,7 +95,7 @@ module pn_core #(
 
     // controls, active high from the platform
     input  logic        coin1, coin2, service, test,
-    input  logic  [1:0] net_id,             // "Player Color/Network ID": red, yellow, green, blue
+    input  logic  [1:0] net_id,             // "Player Color/Net ID": red, yellow, green, blue
     input  logic  [7:0] in1_raw,            // IN1 as MAME lists it (active high here)
 
     // video
@@ -105,7 +106,7 @@ module pn_core #(
     output logic        de,
     output logic        hblank,
     output logic        vblank,
-    output logic  [8:0] vid_line,           // the raster line: 0-255 the picture, 256-266 the vertical blank
+    output logic  [8:0] vid_line,           // the raster line: 0-255 the picture, then the vertical blank (to 266 or 262)
     output logic  [7:0] game_mode,          // the work RAM byte at ff8008 (pn_main)
 
     // audio, 48 kHz
@@ -134,7 +135,8 @@ module pn_core #(
 );
     // ------------------------------------------------------------ clocks / raster
     logic cen_16m, cen_8m, cen_48k, cen_dsp;
-    pn_clk u_cen (.clk(clk), .reset(vid_reset), .cen_16m(cen_16m), .cen_8m(cen_8m),
+    logic vid_mode;                         // the raster in use (pn_video): 1 has the 13-clock dot
+    pn_clk u_cen (.clk(clk), .reset(vid_reset), .pix13(vid_mode), .cen_16m(cen_16m), .cen_8m(cen_8m),
                   .cen_pix(cen_pix), .cen_48k(cen_48k), .cen_dsp(cen_dsp));
 
     logic        line_start, frame_start, px_valid, vblank_rise;
@@ -144,7 +146,8 @@ module pn_core #(
     logic  [8:0] vcount;
     logic        busy_ttl, busy_roz, busy_poly;
     pn_video u_vid (
-        .clk(clk), .reset(vid_reset), .cen_pix(cen_pix), .vflip(sys1[3]), .hflip(sys1[2]),
+        .clk(clk), .reset(vid_reset), .cen_pix(cen_pix), .vmode(vmode), .mode(vid_mode),
+        .vflip(sys1[3]), .hflip(sys1[2]),
         .line_start(line_start), .render_line(render_line), .frame_start(frame_start),
         .renderers_busy({busy_poly, busy_roz, busy_ttl}), .overrun(dbg_overrun),
         .px(px), .px_valid(px_valid), .hcount(hcount), .vcount(vcount),
@@ -267,11 +270,11 @@ module pn_core #(
     );
 
     // ------------------------------------------------------------ mixer
-    // One pixel period is 12 clocks. The line buffers answer one clock after px moves (at
-    // cen_pix); the palette copy (in pn_main) two clocks after its address. Phase 2 looks up
-    // the ROZ pen, 3 the text pen, 4 the background (entry 0x100); 4/5/6 take the colours;
-    // phase 7 composes. rgb then holds until the next phase 7, past the cen_pix that ends the
-    // period, where de / syncs move.
+    // One pixel period is 12 clocks (13 with the RT4K raster). The line buffers answer one
+    // clock after px moves (at cen_pix); the palette copy (in pn_main) two clocks after its
+    // address. Phase 2 looks up the ROZ pen, 3 the text pen, 4 the background (entry 0x100);
+    // 4/5/6 take the colours; phase 7 composes. rgb then holds until the next phase 7, past
+    // the cen_pix that ends the period, where de / syncs move.
     function automatic logic [23:0] x555(input logic [14:0] c);
         return {c[14:10], c[14:12], c[9:5], c[9:7], c[4:0], c[4:2]};
     endfunction

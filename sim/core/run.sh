@@ -8,4 +8,13 @@ if [ -f ../../rtl/dsp56156/dsp56156.sv ]; then DSP="../../rtl/dsp56156/*.sv"; el
 verilator --binary -O2 -Wno-fatal -Wno-lint -Wno-style +1364-2005ext+v --top-module tb_core -o tb_core \
     tb_core.sv ../../rtl/pn_*.sv ../../rtl/k054539.sv ../../rtl/k054321.sv ../../rtl/er5911.sv $DSP \
     ../../modules/cpu-tg68k/gen/tg68k.v ../../modules/cpu-tv80/*.v >/dev/null
-./obj_dir/tb_core
+# three runs: the 267-line raster, the RT4K one (+vmode=1), and a switch between them (+vswitch); the summary
+# line says PASSED only when all three did
+fail=0
+for v in "" "+vmode=1" "+vswitch"; do
+    echo "run ${v:-(267 lines)}"
+    out=$(./obj_dir/tb_core $v)
+    echo "$out" | sed 's/^/  /'
+    echo "$out" | grep -q "^PASSED" || fail=1
+done
+if [ $fail = 0 ]; then echo "PASSED (3 runs)"; else echo "FAILED"; fi

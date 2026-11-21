@@ -70,6 +70,10 @@ module tb_core;
         end
     end
 
+    // the OSD's Timing: +vmode=1 runs on the RT4K raster from the start; +vswitch starts on the 267-line
+    // one and switches in the middle of the second frame
+    logic        vmode_tb = 1'b0;
+    int          vswitch = 0;
     logic        cen_pix, hs, vs, de, hb, vb, snd_valid;
     logic [23:0] rgb;
     logic [15:0] snd_l, snd_r;
@@ -78,7 +82,7 @@ module tb_core;
     logic  [7:0] eep_q; logic eep_dirty;
 
     pn_core #(.HEXDIR("../../rtl/data")) dut (
-        .clk(clk), .reset(reset), .vid_reset(reset),
+        .clk(clk), .reset(reset), .vid_reset(reset), .vmode(vmode_tb),
         .prog_req(prog_req), .prog_addr(prog_addr), .prog_ack(prog_ack), .prog_q(prog_q),
         .pram_req(pram_req), .pram_we(pram_we), .pram_addr(pram_addr), .pram_be(pram_be),
         .pram_wdata(pram_wdata), .pram_ack(pram_ack), .pram_q(pram_q),
@@ -121,11 +125,74 @@ module tb_core;
         else $display("ok   %s: %08x", what, got);
     endtask
 
+    // ---------------------------------------------------------------- the raster
+    // Measured at pn_core's outputs from the first vsync after `meas_from` frames: the clocks of every
+    // line and frame, the dot's spacing, the lines a frame, the picture's rows and their width, the sync
+    // pulses' lengths and where the picture starts after them.
+    int    meas_from = 2;
+    longint t = 0;
+    logic  hs_d = 1'b0, vs_d = 1'b0, de_d = 1'b0, armed = 1'b0;
+    longint t_hs = -1, t_vs = -1, t_ce = -1, t_vsr = -1;
+    int    lines = 0, rows = 0, rowpx = 0;
+    // each measure's lowest and highest value, and how many times it was taken
+    localparam int R_LINE = 0, R_FRAME = 1, R_CE = 2, R_LINES = 3, R_ROWS = 4, R_ROWPX = 5, R_HSPW = 6,
+                   R_VSPW = 7, R_HS2DE = 8, R_VS2DE = 9;
+    longint r_lo [10], r_hi [10];
+    int     r_n [10] = '{default: 0};
+    task automatic put(input int i, input longint v);
+        if (r_n[i] == 0 || v < r_lo[i]) r_lo[i] = v;
+        if (r_n[i] == 0 || v > r_hi[i]) r_hi[i] = v;
+        r_n[i]++;
+    endtask
+    logic first_de;
+    always @(posedge clk) begin
+        t++;
+        hs_d <= hs; vs_d <= vs; de_d <= de;
+        if (!armed && frames >= meas_from && vs && !vs_d) begin
+            armed <= 1'b1; t_vs = t; t_hs = -1; t_ce = -1; lines = 0; rows = 0; first_de = 1'b1;
+        end
+        if (armed) begin
+            if (cen_pix) begin
+                if (t_ce >= 0) put(R_CE, t - t_ce);
+                t_ce = t;
+                if (de) rowpx++;
+            end
+            if (hs && !hs_d) begin
+                if (t_hs >= 0) put(R_LINE, t - t_hs);
+                t_hs = t; lines++;
+            end
+            if (!hs && hs_d && t_hs >= 0) put(R_HSPW, t - t_hs);
+            if (de && !de_d) begin
+                if (t_hs >= 0) put(R_HS2DE, t - t_hs);
+                if (first_de) begin put(R_VS2DE, t - t_vs); first_de = 1'b0; end
+            end
+            if (!de && de_d) begin put(R_ROWPX, rowpx); rowpx = 0; rows++; end
+            if (vs && !vs_d && t > t_vs) begin
+                put(R_FRAME, t - t_vs); put(R_LINES, lines); put(R_ROWS, rows);
+                t_vs = t; lines = 0; rows = 0; first_de = 1'b1;
+            end
+            if (!vs && vs_d) put(R_VSPW, t - t_vs);
+        end
+    end
+    task automatic rcheck(input string what, input int i, input longint exp);
+        if (r_n[i] == 0 || r_lo[i] != exp || r_hi[i] != exp) begin
+            $display("FAIL %s: %0d..%0d over %0d, expected %0d", what, r_lo[i], r_hi[i], r_n[i], exp); fails++;
+        end else $display("ok   %s: %0d (%0d times)", what, exp, r_n[i]);
+    endtask
+
     logic [31:0] cnt;
     initial begin
+        if ($value$plusargs("vmode=%d", cnt)) vmode_tb = cnt[0];
+        if ($test$plusargs("vswitch")) begin vswitch = 1; meas_from = 3; end
         $readmemh("prog.hex", prog);
         repeat (20) @(posedge clk);
         reset = 1'b0;
+        if (vswitch != 0) begin
+            wait (frames == 1);
+            repeat (777777) @(posedge clk);
+            vmode_tb = 1'b1;
+            $display("Timing switched to 263 lines in frame 1, line %0d", dut.u_vid.vcount);
+        end
         wait (frames == 4);
         repeat (1000) @(posedge clk);
         $display("%0d CPU steps in 4 frames", steps);
@@ -148,6 +215,31 @@ module tb_core;
         check("exception capture: stacked PC", dut.dbg_exc_pc, {prog[20'h7C], prog[20'h7D]} + 32'd4);
         check("exception capture: instruction address", dut.dbg_exc_ia, {prog[20'h7C], prog[20'h7D]});
         check("exception capture: SR (supervisor)", {16'h0, dut.dbg_exc_sr & 16'hff00}, 32'h00002000);
+        wait (frames == meas_from + 3);
+        repeat (1000) @(posedge clk);
+        if (vmode_tb) begin
+            $display("raster: 263 lines (RT4K DV1)");
+            rcheck("clocks a line", R_LINE, 6084);          // 468 dots of 13 clocks
+            rcheck("clocks a frame", R_FRAME, 1600092);     // 263 lines: 59.997 Hz
+            rcheck("lines a frame", R_LINES, 263);
+            rcheck("clocks between dots", R_CE, 13);
+            rcheck("hsync clocks", R_HSPW, 442);            // 34 dots, 4.60 us
+            rcheck("hsync start to the picture", R_HS2DE, 793);     // 61 dots
+            rcheck("vsync clocks", R_VSPW, 12168);          // 2 lines
+            rcheck("vsync start to the picture", R_VS2DE, 31213);   // 5 lines and 61 dots
+        end else begin
+            $display("raster: 267 lines");
+            rcheck("clocks a line", R_LINE, 6000);          // 500 dots of 12 clocks
+            rcheck("clocks a frame", R_FRAME, 1602000);     // 267 lines: 59.925 Hz
+            rcheck("lines a frame", R_LINES, 267);
+            rcheck("clocks between dots", R_CE, 12);
+            rcheck("hsync clocks", R_HSPW, 432);            // 36 dots, 4.5 us
+            rcheck("hsync start to the picture", R_HS2DE, 1224);    // 102 dots
+            rcheck("vsync clocks", R_VSPW, 18000);          // 3 lines
+            rcheck("vsync start to the picture", R_VS2DE, 54768);   // 9 lines and 64 dots
+        end
+        rcheck("picture rows a frame", R_ROWS, 256);
+        rcheck("dots a row", R_ROWPX, 384);
         if (fails != 0) $display("FAILED (%0d)", fails); else $display("PASSED");
         $finish;
     end

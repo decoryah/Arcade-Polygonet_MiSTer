@@ -181,7 +181,7 @@ module tb_game;
     logic [31:0] dbg_exc_pc, dbg_exc_ia; logic [15:0] dbg_exc_fv, dbg_exc_sr;
 
     pn_core #(.HEXDIR("../../rtl/data")) dut (
-        .clk(clk), .reset(core_reset), .vid_reset(reset),
+        .clk(clk), .reset(core_reset), .vid_reset(reset), .vmode(1'b0),
         .prog_req(prog_req), .prog_addr(prog_addr), .prog_ack(prog_ack), .prog_q(prog_q),
         .pram_req(pram_req), .pram_we(pram_we), .pram_addr(pram_addr), .pram_be(pram_be),
         .pram_wdata(pram_wdata), .pram_ack(pram_ack), .pram_q(pram_q),

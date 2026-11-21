@@ -10,6 +10,8 @@
 // pixel). The picture is 384 pixels from 102 to 486 pixels after the hsync pulse starts (36 pixels
 // long), and lines 0-255 of 267. The module delays the vertical sync by whole lines, so it starts and
 // ends on an hsync; that leaves 3 lines between the picture and the 3-line vsync pulse and 5 after it.
+// This is the default Timing; with the other (263 lines, for a RetroTINK 4K) Polygonet.sv holds
+// CRT Adjust off.
 //
 // The OSD values are limited so the picture is always whole and stays out of both sync pulses
 // (sim/crt measures it on arcade_video's output for every H-Size and H-Position):

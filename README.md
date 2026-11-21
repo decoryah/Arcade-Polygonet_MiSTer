@@ -24,11 +24,11 @@ The pictures are from MAME 0.289.
 No ROMs are in this repository; you supply your own MAME sets.
 
 **Status.** Both games are supported, tested and working on a real MiSTer. Built with Quartus 17.0, timing met on every clock
-(the setup slack on the worst path; hold is met too, by +0.243 ns and +0.249 ns):
+(the setup slack on the worst path; hold is met too, by +0.240 ns and +0.176 ns):
 
 | Core | ALMs (of 41,910) | M10K (of 553) | Machine, 96 MHz | HDMI |
 |---|---|---|---|---|
-| `Polygonet` | 22,774 (54 %) | 455 | +0.615 ns | +0.653 ns |
+| `Polygonet` | 22,836 (54 %) | 455 | +0.304 ns | +0.481 ns |
 
 | Game | Set | On this core |
 |---|---|---|
@@ -69,9 +69,10 @@ Commanders and one for Warriors). On the keyboard, 5 and 6 are the coins, 9 the 
 | Orientation | Vert: the game upright on an ordinary screen (MiSTer rotates the picture). Horz: as the board makes it, for a monitor turned on its side |
 | Rotation | CW, CCW |
 | Scandoubler Fx | None, HQ2x, CRT 25%, CRT 50%, CRT 75% |
-| CRT Adjust | Off, On; H-Size -16 to +1, H-Position -48 to +14, V-Shift -5 to +3 (below) |
-| Board Settings: Player Color/Network ID | Red, Yellow, Green, Blue, applied at the next reset |
-| Board Settings: Tank controls | One stick, Two sticks (P1+P2 Y) |
+| Timing | **267 lns. (Original)**, the default, for a CRT and HDMI. **263 lns. (RT4K DV1)**, for a RetroTINK 4K in direct video (below); too few blank lines for a CRT |
+| CRT Adjust | Off, On; H-Size -16 to +1, H-Position -48 to +14, V-Shift -5 to +3 (below). The page is greyed out, and CRT Adjust off, with 263 lns. (RT4K DV1) |
+| Board Settings: Player Color/Net ID | Red, Yellow, Green, Blue, applied at the next reset |
+| Board Settings: Tank controls | One stick, Two sticks (above) |
 | Board Settings: Audio | Stereo, Mono |
 | Test Mode | Off, On: holds the board's test switch, for the game's test menu |
 
@@ -84,17 +85,21 @@ loads at the next start.
 
 ## Notes
 
-- **The picture:** 384 x 256 in a raster of 500 x 267 at 8 MHz, 16.0 kHz and 59.93 Hz, for a CRT as well as HDMI. Both games
-  are vertical.
+- **The picture:** 384 x 256. With the default Timing, 267 lns. (Original), the raster is 500 x 267 at 8 MHz, 16.0 kHz and
+  59.93 Hz, for a CRT as well as HDMI. Both games are vertical.
 - **CRT Adjust** (rmonic79's MiSTer-CRT-Adjust), for a 15 kHz analog picture: the picture moves and resizes, but the sync pulses
   stay as they are, so the monitor keeps its lock. It is off by default, and does nothing while a Scandoubler Fx is on. The ranges
   are what this board's picture leaves room for: it fills 384 of the 500 pixels of a line and 256 of its 267 lines. H-Position
   stops early where the picture would reach a sync pulse at the H-Size chosen (at most -47 at H-Size -16, +13 at 0 and -1 at
   +1). H-Size scales the picture from the start of the line, so a narrower picture also sits further left.
-- **Direct video and the RetroTINK 4K (DV1):** the framework reports what DV1 needs (the clocks per pixel, the picture's size and
-  place), and the pixel is steady: 12 clocks of the 96 MHz video clock. With DV1, leave CRT Adjust Off and Scandoubler Fx None.
-  In direct video the picture goes out sideways, as the board makes it; Orientation and Rotation act on MiSTer's scaler only, so
-  the OSD hides them. Not yet tried with a RetroTINK 4K.
+- **Direct video and the RetroTINK 4K (DV1):** set Timing to 263 lns. (RT4K DV1). The RT4K sorts a direct-video signal
+  by its lines a frame: it shows the default's 267 lines as "MiSTer Gen." and takes 262-264 lines as "MiSTer 240p". It also
+  judges a picture's width by its time in the line, so this timing has a slower dot, 7.38 MHz, and the picture fills 52 us of
+  the 63.4 us line, as a 4:3 arcade picture does: 468 x 263 at 15.78 kHz and 60.00 Hz, with 7 blank lines. Every line is the
+  same length and every pixel 13 clocks of the 96 MHz video clock; the framework reports them to DV1 (the clocks per pixel, the
+  picture's size and place), again after each change of Timing. The RT4K crops the picture from the middle of the part of the
+  line between the hsyncs, so the picture sits there, 23 pixels from either end. Leave Scandoubler Fx None. In direct video the picture goes out sideways, as the board makes it;
+  Orientation and Rotation act on MiSTer's scaler only, so the OSD hides them.
 - **3D timing:** the renderer draws the polygon list the DSP finished last, so the 3D picture is one 3D frame (2 or 4 video
   frames) fresher than MAME's, which draws a list as the DSP starts to overwrite it. This follows from the time a page takes to
   draw, but it hasn't been measured on a real board.
@@ -109,7 +114,8 @@ loads at the next start.
 ## What is verified
 
 - On a real MiSTer: both games played, Commanders' name entry and test menu with one stick, a reset after a change of Player
-  Color, the OSD's pages.
+  Color, the OSD's pages; on a RetroTINK 4K over DV1, 263 lns. (RT4K DV1) shows as "MiSTer 240p", the whole picture, also
+  after switching Timing while a game runs.
 - The whole board on the games' ROMs against MAME 0.289 (`sim/game`, with the MiSTer's memory path and an SDRAM model): the
   RAM and ROM check, the attract, Commanders' play and Warriors' attract.
 - The DSP56156 core against a reference model of the chip, after every instruction: directed tests and random programs, with
@@ -117,7 +123,9 @@ loads at the next start.
 - The polygon renderer (`sim/poly`), the K053936 (`sim/roz`) and the text plane (`sim/ttl`) against transcriptions of MAME's
   code, pixel for pixel; TG68K's 68020 multiply, divide and bit-field instructions against a model of the 68020 (`sim/cpu`).
 - Every CRT Adjust setting on the raster and MiSTer's video output: the whole picture, clear of both sync pulses (`sim/crt`);
-  the MiSTer video path with the rotation (`sim/rot`).
+  the MiSTer video path with the rotation (`sim/rot`); both Timings at the machine's outputs, every line, frame and pixel
+  the same length, and a change from one to the other (`sim/core`); the direct-video path with the RT4K timing: the picture
+  in the middle of the DE, and the framework's new DV1 numbers after a change of Timing (`sim/dv`).
 
 How the core is built is in [docs/design.md](docs/design.md); what is known of the board is in
 [docs/hardware.md](docs/hardware.md).

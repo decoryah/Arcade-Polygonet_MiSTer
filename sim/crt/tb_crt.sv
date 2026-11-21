@@ -15,7 +15,7 @@ module tb_crt;
     always_ff @(posedge clk) begin div <= (div == 11) ? 0 : div + 1; cen <= (div == 5); end
 
     logic ls, fs, ovr, pv, hs, vs, de, hb, vb, vbr; logic [7:0] rl; logic [8:0] px; logic [9:0] hc; logic [8:0] vc;
-    pn_video u_v (.clk(clk), .reset(reset), .cen_pix(cen), .vflip(1'b0), .hflip(1'b0), .line_start(ls), .render_line(rl), .frame_start(fs),
+    pn_video u_v (.clk(clk), .reset(reset), .cen_pix(cen), .vmode(1'b0), .mode(), .vflip(1'b0), .hflip(1'b0), .line_start(ls), .render_line(rl), .frame_start(fs),
         .renderers_busy(3'b0), .overrun(ovr), .px(px), .px_valid(pv), .hcount(hc), .vcount(vc),
         .hsync(hs), .vsync(vs), .de(de), .hblank(hb), .vblank(vb), .vblank_rise(vbr));
 
